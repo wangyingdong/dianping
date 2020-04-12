@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+
+<generatorConfiguration>
+
+    <context id="Mysql" targetRuntime="MyBatis3Simple" defaultModelType="flat">
+        <property name="beginningDelimiter" value="`"/>
+        <property name="endingDelimiter" value="`"/>
+
+        <plugin type="com.softwareloop.mybatis.generator.plugins.LombokPlugin">
+            <!-- enable annotations -->
+            <property name="builder" value="true"/>
+            <!-- enable annotations -->
+            <property name="data" value="true"/>
+            <!-- enable annotations -->
+            <property name="NnoArgsConstructor" value="true"/>
+            <!-- disable annotations -->
+            <property name="allArgsConstructor" value="true"/>
+        </plugin>
+
+        <plugin type="tk.mybatis.mapper.generator.MapperPlugin">
+            <property name="mappers" value="com.dianping.mapper"/>
+        </plugin>
+        <!-- 数据库连接配置-->
+        <jdbcConnection driverClass="com.mysql.jdbc.Driver"
+                        connectionURL="jdbc:mysql://192.168.99.100:3306/dianping?serverTimezone=UTC"
+                        userId="root"
+                        password="123456">
+        </jdbcConnection>
+        <!-- 生成模型的位置-->
+        <javaModelGenerator targetPackage="com.dianping.model" targetProject="src/main/java"/>
+        <!-- 生成xml的位置 -->
+        <sqlMapGenerator targetPackage="mapper" targetProject="src/main/resources"/>
+        <!-- 生成接口的位置 -->
+        <javaClientGenerator targetPackage="com.dianping.mapper" targetProject="src/main/java" type="XMLMAPPER"/>
+        <!-- 需要生成的表,要生成多少就写多少 -->
+        <table tableName="user">
+            <generatedKey column="Id" sqlStatement="Mysql" identity="true"/>
+        </table>
+    </context>
+</generatorConfiguration>

@@ -1,0 +1,352 @@
+PUT /movie
+{
+  "settings": {
+    "number_of_replicas": 1,
+    "number_of_shards": 1
+  },
+  "mappings": {
+    "properties": {
+      "title": {"type":"text","analyzer": "english"},
+      "tagline":{"type":"text","analyzer": "english"},
+      "release_date":{"type": "date","format": "8yyyy/MM/dd||yyyy/M|dd||yyyy/MM/d||yyyy/M/d"},
+      "popularity":{"type":"double"},
+      "overview":{"type":"text","analyzer": "english"},
+      "cast":{
+          "type":"object",
+          "properties": {
+            "character":{"type":"text","analyzer":"standard"},
+            "name":{"type":"text","analyzer":"standard"}
+          }
+      }
+    }
+  }
+}
+#match 按照字段的定义分词后查询
+GET /movie/_search
+{
+  "query":{
+    "match":{
+      "title":"steve zissou"
+    }
+  }
+}
+
+GET /movie/_analyze
+{
+  "field": "title",
+  "text":"steve zissou"
+}
+
+#term 不进行分词的分析，直接去索引内查询
+GET /movie/_search
+{
+  "query":{
+    "term":{
+      "title":"steve zissou"
+    }
+  }
+}
+
+#分词后and和or的逻辑
+GET /movie/_search
+{
+  "query":{
+    "match":{
+      "title":"basketball with cartoom aliens"
+    }
+  }
+}
+
+GET /movie/_search
+{
+  "query":{
+    "match":{
+      "title":{
+        "query":"basketball with cartoom aliens",
+        "operator": "or"
+      }
+    }
+  }
+}
+
+#最小词匹配项
+GET /movie/_search
+{
+  "query":{
+    "match":{
+      "title":{
+        "query":"basketball love aliens",
+        "operator": "or",
+        "minimum_should_match": 2
+      }
+    }
+  }
+}
+
+#短语查询
+
+GET /movie/_search
+{
+  "query":{
+    "match_phrase":{
+      "title":{
+        "query":"steve zissou"
+
+      }
+    }
+  }
+}
+
+#多字段查询
+
+GET /movie/_search
+{
+  "query":{
+    "multi_match":{
+        "query":"basketball with cartoom aliens",
+        "fields":["title","overview"]
+    }
+  }
+}
+
+#得分,boost*2.2
+GET /movie/_search
+{
+  "explain": true,
+  "query":{
+    "match":{
+      "title":{
+        "query":"steve"
+
+      }
+    }
+  }
+}
+
+#优化多字段查询
+GET /movie/_search
+{
+
+  "query":{
+    "multi_match":{
+        "query":"basketball with cartoom aliens",
+        "fields":["title^10","overview"],
+        "tie_breaker": 0.3
+    }
+  }
+}
+
+#bool查询
+#must:必须都为true
+#must not:必须都是false
+#should:其中只有一个为true即可
+#为true的越多则得分越高
+
+GET /movie/_search
+{
+  "query":{
+    "bool": {
+      "should": [
+          {"match":{"title":"basketball with cartoom aliens"}},
+          {"match":{"overview":"basketball with cartoom aliens"}}
+      ]
+    }
+  }
+}
+
+#不同的multi_query其实是有不同的type
+#best_fields:默认的得分方式，取得最高的分数作为对应文档的对应分数，“最匹配模式” dis_max
+GET /movie/_search
+{
+  "explain": true,
+  "query":{
+    "multi_match":{
+        "query":"basketball with cartoom aliens",
+        "fields":["title","overview"],
+        "type": "best_fields"
+    }
+  }
+}
+
+GET /movie/_validate/query?explain
+{
+  "query":{
+    "multi_match":{
+        "query":"basketball with cartoom aliens",
+        "fields":["title","overview"],
+        "type": "best_fields"
+    }
+  }
+}
+
+#most_fields:考虑绝大多数（所有的）文档的字段得分相加，获得结果
+# ^10放大
+GET /movie/_search
+{
+  "query":{
+    "multi_match":{
+        "query":"basketball with cartoom aliens",
+        "fields":["title^10","overview"],
+        "type": "most_fields"
+    }
+  }
+}
+
+
+#cross_fields:以分词为单位计算栏为的总分,适用于词导向的匹配
+GET /movie/_search
+{
+  "query":{
+    "multi_match":{
+        "query":"steve job",
+        "fields":["title","overview"],
+        "type": "cross_fields"
+    }
+  }
+}
+
+
+
+
+GET /movie/_validate/query?explain
+{
+  "query":{
+    "multi_match":{
+        "query":"basketball with cartoom aliens",
+        "fields":["title","overview"],
+        "type": "cross_fields"
+    }
+  }
+}
+
+#query string
+#方便的利用 AND OR NOT
+GET /movie/_search
+{
+  "query":{
+    "query_string":{
+        "query":"steve AND job",
+        "fields":["title"]
+    }
+  }
+}
+
+#filter过滤查询
+#单条件过滤
+GET /movie/_search
+{
+  "query":{
+    "bool":{
+      "filter": {
+        "term": {
+          "title": "steve"
+        }
+      }
+    }
+  }
+}
+
+#多条件过滤
+
+GET /movie/_search
+{
+  "query":{
+    "bool":{
+      "filter": [
+        { "term": {"title": "steve"}},
+        { "term": {"cast.name": "gaspard"}},
+        {"range":{"release_date":{"lte":"2015/01/01"}}},
+        {"range":{"popularity":{"gte":"25"}}}
+      ]
+    }
+  },
+  "sort": [
+    {
+        "popularity": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+
+#带match打分的filter 8.15
+
+GET /movie/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {"match": {
+          "title": "life"
+        }}
+      ],
+      "filter": [
+        {"term": {"title": "steve"}},
+        {"term": {"cast.name": "gaspard"}},
+        {"range":{"release_date":{"lte":"2015/01/01"}}},
+        {"range":{"popularity":{"gte":"25"}}}
+      ]
+    }
+  }
+}
+
+#function
+
+GET /movie/_search
+{
+  "explain": true,
+  "query": {
+    "function_score": {
+      "query": {
+        "multi_match": {
+        "query": "steve job",
+        "fields": ["title","overview"],
+        "operator": "or",
+        "type": "most_fields"
+       }
+      },
+      "functions": [
+        {"field_value_factor": {
+          "field": "popularity",
+          "modifier": "log2p",
+          "factor": 10
+        }},
+         {"field_value_factor": {
+          "field": "popularity",
+          "modifier": "log2p",
+          "factor": 5
+        }}
+      ],
+      "score_mode": "sum",
+       "boost_mode": "sum"
+    }
+  }
+
+}
+
+
+#ik
+#智能
+GET _analyze?pretty
+{
+  "analyzer": "ik_smart",
+  "text":"中华人民共和国国歌"
+}
+#最大化
+GET _analyze?pretty
+{
+  "analyzer": "ik_max_word",
+  "text":"中华人民共和国国歌"
+}
+#标准
+GET _analyze?pretty
+{
+  "analyzer": "standard",
+  "text":"中华人民共和国国歌"
+}
+
+
+#analyzer       指定的是构建索引的时候的分词
+#search_analyzer指定的是搜索索引的时候的分词
+
+#最佳实践:索引的时候使用max_word,查询的时候使用smart
